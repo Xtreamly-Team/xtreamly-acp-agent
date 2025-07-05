@@ -68,7 +68,7 @@ def seller():
             # Check if there's a memo that indicates next phase is EVALUATION
             for memo in job.memos:
                 if memo.next_phase == ACPJobPhase.EVALUATION:
-                    logger.info("Delivering job", job)
+                    logger.info(f"Delivering job {job}")
                     first_memo = job.memos[0]
                     content = json.loads(first_memo.content)
                     logger.info("Content")
