@@ -1,4 +1,3 @@
-from pprint import pprint
 import os
 import requests
 import time
@@ -8,7 +7,18 @@ from virtuals_acp import VirtualsACP, ACPJob, ACPJobPhase
 from virtuals_acp.env import EnvSettings
 
 from dotenv import load_dotenv
+
+import logging
 load_dotenv(override=True)
+
+logger = logging.getLogger(__name__)
+# Set up logging
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+logger.addHandler(handler)
+
+logger.info("Environment variables loaded successfully")
+
 
 def predict_volatility(symbol: str, horizon: int):
 
@@ -26,8 +36,8 @@ def predict_volatility(symbol: str, horizon: int):
         'symbol': symbol,
         'horizon': f'{horizon}min'
     }
-    print("Predicting volatility for symbol:")
-    pprint(params)
+    logger.info("Predicting volatility for symbol:")
+    logger.info(params)
 
     res = requests.get(url, params=params, headers=headers)
     # res.raise_for_status()
@@ -58,18 +68,18 @@ def seller():
             # Check if there's a memo that indicates next phase is EVALUATION
             for memo in job.memos:
                 if memo.next_phase == ACPJobPhase.EVALUATION:
-                    print("Delivering job", job)
+                    logger.info("Delivering job", job)
                     first_memo = job.memos[0]
                     content = json.loads(first_memo.content)
-                    pprint("Content")
-                    pprint(content)
+                    logger.info("Content")
+                    logger.info(content)
 
                     volatility_res = predict_volatility(
                         symbol=content['symbol'],
                         horizon=content['horizon_min']
                     )
-                    pprint("Volatility Result")
-                    pprint(volatility_res)
+                    logger.info("Volatility Result")
+                    logger.info(volatility_res)
 
                     delivery_data = {
                         "type": "object",
@@ -94,11 +104,13 @@ def seller():
         entity_id=env.SELLER_ENTITY_ID
     )
 
-    print(acp_client.entity_id)
+    logger.info("Client created successfully")
+    logger.info(acp_client.entity_id)
     
     while True:
-        print("Waiting for new task...")
+        logger.info("Waiting for new task...")
         time.sleep(10)
 
 if __name__ == "__main__":
+    logger.info("Starting seller service...")
     seller()

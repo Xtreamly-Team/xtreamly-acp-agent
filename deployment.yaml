@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xtreamly-acp-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: xtreamly-acp-agent
+  template:
+    metadata:
+      labels:
+        app: xtreamly-acp-agent
+    spec:
+      containers:
+      - name: xtreamly-acp-agent
+        image: us-central1-docker.pkg.dev/xtreamly-ai/long-running/xtreamly-acp-agent
