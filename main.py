@@ -3,7 +3,7 @@ import requests
 import time
 import json
 
-from virtuals_acp import VirtualsACP, ACPJob, ACPJobPhase
+from virtuals_acp import IDeliverable, VirtualsACP, ACPJob, ACPJobPhase
 from virtuals_acp.env import EnvSettings
 
 from dotenv import load_dotenv
@@ -12,13 +12,11 @@ import logging
 load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
-# Set up logging
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 logger.addHandler(handler)
 
 logger.info("Environment variables loaded successfully")
-
 
 def predict_volatility(symbol: str, horizon: int):
 
@@ -34,7 +32,7 @@ def predict_volatility(symbol: str, horizon: int):
     }
     params = {
         'symbol': symbol,
-        'horizon': f'{horizon}min'
+        'horizon': f'{horizon}'
     }
     logger.info("Predicting volatility for symbol:")
     logger.info(params)
@@ -51,7 +49,6 @@ def predict_volatility(symbol: str, horizon: int):
         'status': 'success',
         'message': res.json(),
     }
-
 
 def seller():
     env = EnvSettings()
@@ -81,15 +78,18 @@ def seller():
                     logger.info("Volatility Result")
                     logger.info(volatility_res)
 
-                    delivery_data = {
-                        "type": "object",
-                        "value": {
+                    deliverable_data = IDeliverable(
+                        type= "object",
+                        value={
                             'status': volatility_res['status'],
                             'message': volatility_res['message']
                         }
-                    }
+                    )
+                    # delivery_data = {
+                    # }
 
-                    job.deliver(json.dumps(delivery_data))
+                    # job.deliver(json.dumps(delivery_data))
+                    job.deliver(deliverable_data)
                     break
                 
     if env.WHITELISTED_WALLET_PRIVATE_KEY is None:
