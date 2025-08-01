@@ -85,10 +85,6 @@ def seller():
                             'message': volatility_res['message']
                         }
                     )
-                    # delivery_data = {
-                    # }
-
-                    # job.deliver(json.dumps(delivery_data))
                     job.deliver(deliverable_data)
                     break
                 
