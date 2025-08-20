@@ -1,9 +1,10 @@
 import os
+from typing import Optional
 import requests
 import time
 import json
 
-from virtuals_acp import IDeliverable, VirtualsACP, ACPJob, ACPJobPhase
+from virtuals_acp import ACPMemo, IDeliverable, VirtualsACP, ACPJob, ACPJobPhase
 from virtuals_acp.env import EnvSettings
 
 from dotenv import load_dotenv
@@ -53,7 +54,7 @@ def predict_volatility(symbol: str, horizon: int):
 def seller():
     env = EnvSettings()
 
-    def on_new_task(job: ACPJob):
+    def on_new_task(job: ACPJob, memo_to_sign: Optional[ACPMemo] = None):
         # Convert job.phase to ACPJobPhase enum if it's an integer
         if job.phase == ACPJobPhase.REQUEST:
             # Check if there's a memo that indicates next phase is NEGOTIATION
@@ -70,10 +71,11 @@ def seller():
                     content = json.loads(first_memo.content)
                     logger.info("Content")
                     logger.info(content)
+                    params = content['serviceRequirement']
 
                     volatility_res = predict_volatility(
-                        symbol=content['symbol'],
-                        horizon=content['horizon_min']
+                        symbol=params['symbol'],
+                        horizon=params['horizon_min']
                     )
                     logger.info("Volatility Result")
                     logger.info(volatility_res)

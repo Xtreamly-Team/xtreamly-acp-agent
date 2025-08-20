@@ -2,7 +2,9 @@ import json
 from pprint import pprint
 from datetime import datetime, timedelta
 import time
+from typing import Optional
 
+from virtuals_acp import ACPMemo
 from virtuals_acp.client import VirtualsACP
 from virtuals_acp.job import ACPJob
 from virtuals_acp.models import ACPAgentSort, ACPJobPhase
@@ -14,7 +16,7 @@ load_dotenv(override=True)
 
 def test_buyer():
     env = EnvSettings()
-    def on_new_task(job: ACPJob):
+    def on_new_task(job: ACPJob, memo_to_sign: Optional[ACPMemo] = None):
         if job.phase == ACPJobPhase.NEGOTIATION:
             # Check if there's a memo that indicates next phase is TRANSACTION
             for memo in job.memos:
@@ -61,7 +63,7 @@ def test_buyer():
         return
     pprint(predictive_agent)
     
-    predict_volatility_job_offering = [offering for offering in predictive_agent.offerings if offering.type.lower() == "Predict Volatility".lower()][0]
+    predict_volatility_job_offering = [offering for offering in predictive_agent.offerings if offering.name.lower() == "Predict Volatility".lower()][0]
 
     pprint(predict_volatility_job_offering)
 
