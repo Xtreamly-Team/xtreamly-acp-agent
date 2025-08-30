@@ -1,8 +1,13 @@
 import os
 from typing import Optional
+from pydantic import BaseModel
 import requests
-import time
 import json
+
+import threading
+import time
+from collections import deque
+from typing import Optional, Deque, Tuple
 
 from virtuals_acp import ACPMemo, IDeliverable, VirtualsACP, ACPJob, ACPJobPhase
 from virtuals_acp.env import EnvSettings
@@ -51,8 +56,72 @@ def predict_volatility(symbol: str, horizon: int):
         'message': res.json(),
     }
 
-def seller():
+def seller(use_thread_lock: bool = True):
     env = EnvSettings()
+
+    if env.WHITELISTED_WALLET_PRIVATE_KEY is None:
+        raise ValueError("WHITELISTED_WALLET_PRIVATE_KEY is not set")
+    if env.SELLER_AGENT_WALLET_ADDRESS is None:
+        raise ValueError("SELLER_AGENT_WALLET_ADDRESS is not set")
+    if env.SELLER_ENTITY_ID is None:
+        raise ValueError("SELLER_ENTITY_ID is not set")
+
+    job_queue: Deque[Tuple[ACPJob, Optional[ACPMemo]]] = deque()
+    job_queue_lock = threading.Lock()
+    job_event = threading.Event()
+
+    def safe_append_job(job, memo_to_sign: Optional[ACPMemo] = None):
+        if use_thread_lock:
+            print(f"Acquiring lock to append job {job.id}")
+            with job_queue_lock:
+                print(f"Lock acquired, appending job {job.id} to queue")
+                job_queue.append((job, memo_to_sign))
+        else:
+            job_queue.append((job, memo_to_sign))
+
+    def safe_pop_job():
+        if use_thread_lock:
+            print(f"[safe_pop_job] Acquiring lock to pop job")
+            with job_queue_lock:
+                if job_queue:
+                    job, memo_to_sign = job_queue.popleft()
+                    print(f"Lock acquired, popped job {job.id}")
+                    return job, memo_to_sign
+                else:
+                    print("Queue is empty after acquiring lock")
+                    return None, None
+        else:
+            if job_queue:
+                job, memo_to_sign = job_queue.popleft()
+                print(f"Popped job {job.id} without lock")
+                return job, memo_to_sign
+            else:
+                print("Queue is empty (no lock)")
+                return None, None
+
+    def job_worker():
+        while True:
+            job_event.wait()
+            while True:
+                job, memo_to_sign = safe_pop_job()
+                if not job:
+                    break
+                # Process each job in its own thread to avoid blocking
+                threading.Thread(target=handle_job_with_delay, args=(job, memo_to_sign), daemon=True).start()
+            if use_thread_lock:
+                with job_queue_lock:
+                    if not job_queue:
+                        job_event.clear()
+            else:
+                if not job_queue:
+                    job_event.clear()
+
+    def handle_job_with_delay(job, memo_to_sign):
+        try:
+            on_new_task(job, memo_to_sign)
+            time.sleep(2)
+        except Exception as e:
+            print(f"\u274c Error processing job: {e}")
 
     def on_new_task(job: ACPJob, memo_to_sign: Optional[ACPMemo] = None):
         # Convert job.phase to ACPJobPhase enum if it's an integer
@@ -60,7 +129,17 @@ def seller():
             # Check if there's a memo that indicates next phase is NEGOTIATION
             for memo in job.memos:
                 if memo.next_phase == ACPJobPhase.NEGOTIATION:
-                    job.respond(True)
+                    content = json.loads(memo.content)
+                    logger.info("Content")
+                    logger.info(content)
+                    params = content['serviceRequirement']
+                    symbol = params['symbol']
+                    if symbol.upper() not in ['BTC', 'ETH', 'SOL']:
+                        job.respond(False, None, f"Symbol {symbol} not supported, Supported symbols: [BTC, ETH, SOL]")
+                    elif params['horizon_min'] not in [1, 5, 15, 60, 240, 720, 1440]:
+                        job.respond(False, None, f"Horizon {params['horizon_min']} not supported. Supported horizons: [1, 5, 15, 60, 240, 720, 1440]")
+                    else:
+                        job.respond(True)
                     break
         elif job.phase == ACPJobPhase.TRANSACTION:
             # Check if there's a memo that indicates next phase is EVALUATION
@@ -90,10 +169,7 @@ def seller():
                     job.deliver(deliverable_data)
                     break
                 
-    if env.WHITELISTED_WALLET_PRIVATE_KEY is None:
-        raise ValueError("WHITELISTED_WALLET_PRIVATE_KEY is not set")
-    if env.SELLER_ENTITY_ID is None:
-        raise ValueError("SELLER_ENTITY_ID is not set")
+    threading.Thread(target=job_worker, daemon=True).start()
 
     acp_client = VirtualsACP(
         wallet_private_key=env.WHITELISTED_WALLET_PRIVATE_KEY,
@@ -104,10 +180,13 @@ def seller():
 
     logger.info("Client created successfully")
     logger.info(acp_client.entity_id)
+
+    print("Waiting for new task...")
+    threading.Event().wait()
     
-    while True:
-        logger.info("Waiting for new task...")
-        time.sleep(10)
+    # while True:
+    #     logger.info("Waiting for new task...")
+    #     time.sleep(10)
 
 if __name__ == "__main__":
     logger.info("Starting seller service...")
