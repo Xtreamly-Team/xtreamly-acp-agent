@@ -69,7 +69,7 @@ def test_buyer():
 
     volatility_job = predict_volatility_job_offering.initiate_job(
         service_requirement={
-            "symbol": "ETH", "horizon_min": 20,
+            "symbol": "HBAR", "horizon_min": 15,
         },
         evaluator_address=env.BUYER_AGENT_WALLET_ADDRESS,
         expired_at=datetime.now() + timedelta(days=1)
