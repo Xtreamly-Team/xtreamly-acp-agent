@@ -41,3 +41,8 @@ This project contains the ACP (Automated Control Pipeline) agent for Xtreamly.
    ```bash
    kubectl apply -f deployment.yaml -n xtreamly-acp-agent
    ```
+
+6. Force rollout
+   ```bash
+   kubectl rollout restart xtreamly-acp-agent -n xtreamly-acp-agent
+   ```
