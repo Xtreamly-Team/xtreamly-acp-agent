@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 from dotenv import load_dotenv
 import requests
@@ -12,7 +13,7 @@ logger.setLevel(logging.INFO)
 
 load_dotenv()
 
-def predict_volatility(symbol: str, horizon: int):
+def predict_volatility(symbol: str):
 
     XTREAMLY_BASE_URL = os.getenv("XTREAMLY_BASE_URL")
     XTREAMLY_API_KEY = os.getenv("XTREAMLY_API_KEY")
@@ -24,26 +25,38 @@ def predict_volatility(symbol: str, horizon: int):
     headers = {
         'x-api-key': XTREAMLY_API_KEY
     }
-    params = {
-        'symbol': symbol,
-        'horizon': f'{horizon}'
-    }
+    # params = {
+    #     'symbol': symbol,
+    #     'horizon': f'{horizon}'
+    # }
     logger.info("Predicting volatility for symbol:")
-    logger.info(params)
+    # logger.info(params)
 
-    res = requests.get(url, params=params, headers=headers)
+    res = requests.get(url, headers=headers)
     # res.raise_for_status()
     if res.status_code != 200:
         return {
             'status': 'error',
             'message': f"Error fetching volatility: {res.text}"
         }
+    else:
+        predictions = res.json()
+        for prediction in predictions:
+            if prediction['goal'] == 'TP10SL10_8' and prediction['symbol'] == symbol:
+                return {
+                    'status': 'success',
+                    'message': {
+                        "timestamp": int(datetime.fromisoformat(prediction['prediction_time']).timestamp()),
+                        "volatility": abs(prediction['pred']),
+                        "timestamp_str": prediction['prediction_time']
+                    }
+                }
 
     return {
-        'status': 'success',
-        'message': res.json(),
+        'status': 'error',
+        'message': {},
     }
 
 if __name__ == '__main__':
-    res = predict_volatility('ETH', 15)
+    res = predict_volatility('ETH')
     print(res)

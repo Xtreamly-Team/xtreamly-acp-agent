@@ -1,12 +1,7 @@
-import os
 from typing import Optional
-from pydantic import BaseModel
-import requests
 import json
 
 import threading
-import time
-from collections import deque
 from typing import Optional, Deque, Tuple
 
 from virtuals_acp.memo import ACPMemo
@@ -34,7 +29,7 @@ logger.setLevel(logging.INFO)
 load_dotenv(override=True)
 logger.info("Environment variables loaded successfully")
 
-REJECT_JOB = FALSE
+REJECT_JOB = False
 
 def seller():
     env = EnvSettings()
@@ -53,7 +48,7 @@ def seller():
             content = json.loads(memo_to_sign.content)
             logger.info("Content")
             logger.info(content)
-            params = content['serviceRequirement']
+            params = content['requirement']
             symbol = params['symbol']
             if symbol.upper() not in ['BTC', 'ETH', 'SOL']:
                 job.reject(f"Symbol {symbol} not supported, Supported symbols: [BTC, ETH, SOL]")
@@ -79,14 +74,14 @@ def seller():
                 logger.info(f"Job {job.id} rejected")
                 return
 
-            content = json.loads(memo_to_sign.content)
+
+            content = json.loads(job.memos[0].content)
             logger.info("Content")
             logger.info(content)
-            params = content['serviceRequirement']
+            params = content['requirement']
 
             volatility_res = predict_volatility(
                 symbol=params['symbol'],
-                horizon=params['horizon_min']
             )
             logger.info("Volatility Result")
             logger.info(volatility_res)
